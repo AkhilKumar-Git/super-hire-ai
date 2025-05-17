@@ -1,0 +1,48 @@
+{
+  "contexts": [
+    {
+      "id": "1",
+      "name": "Senior Frontend Developer",
+      "naturalLanguage": "Find me a senior frontend developer with React experience who can lead a team",
+      "booleanSearch": "(React OR ReactJS) AND (senior OR lead OR principal) AND (frontend OR 'front-end' OR 'front end') AND (javascript OR typescript)",
+      "jobDescription": "We are looking for a Senior Frontend Developer with 5+ years of experience in React. The ideal candidate will have experience leading teams and mentoring junior developers. Strong knowledge of modern JavaScript, TypeScript, and frontend build tools is required.",
+      "manualCriteria": {
+        "role": "Senior Frontend Developer",
+        "experience": "5+ years",
+        "skills": ["React", "TypeScript", "JavaScript", "CSS", "HTML"],
+        "location": "San Francisco, CA",
+        "workType": "Hybrid"
+      },
+      "activeFilters": {
+        "useNaturalLanguage": true,
+        "useBooleanSearch": true,
+        "useJobDescription": false,
+        "useManualCriteria": false
+      },
+      "createdAt": "2025-05-17T10:30:00Z",
+      "updatedAt": "2025-05-17T10:30:00Z"
+    },
+    {
+      "id": "2",
+      "name": "ML Engineer with Python",
+      "naturalLanguage": "Looking for a machine learning engineer with Python and TensorFlow experience",
+      "booleanSearch": "(Python) AND ('machine learning' OR ML OR 'deep learning' OR AI) AND (TensorFlow OR PyTorch) AND (engineer OR developer)",
+      "jobDescription": "Machine Learning Engineer needed for our AI team. Must have strong Python skills and experience with TensorFlow or PyTorch. Experience with NLP and computer vision is a plus.",
+      "manualCriteria": {
+        "role": "Machine Learning Engineer",
+        "experience": "3+ years",
+        "skills": ["Python", "TensorFlow", "PyTorch", "Machine Learning", "NLP"],
+        "location": "Remote",
+        "workType": "Full-time"
+      },
+      "activeFilters": {
+        "useNaturalLanguage": true,
+        "useBooleanSearch": false,
+        "useJobDescription": true,
+        "useManualCriteria": false
+      },
+      "createdAt": "2025-05-16T14:45:00Z",
+      "updatedAt": "2025-05-16T14:45:00Z"
+    }
+  ]
+}

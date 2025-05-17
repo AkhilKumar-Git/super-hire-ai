@@ -1,0 +1,78 @@
+{
+  "results": [
+    {
+      "searchId": "1",
+      "searchName": "Senior Frontend Developer",
+      "timestamp": "2025-05-17T10:35:00Z",
+      "candidates": [
+        {
+          "id": "c1",
+          "name": "Alex Johnson",
+          "email": "alex.johnson@example.com",
+          "phone": "(555) 123-4567",
+          "location": "San Francisco, CA",
+          "currentRole": "Senior Frontend Engineer",
+          "company": "TechCorp Inc.",
+          "experience": "8 years",
+          "skills": ["React", "TypeScript", "JavaScript", "Redux", "HTML/CSS", "Next.js"],
+          "education": "BS Computer Science, Stanford University",
+          "matchScore": 94,
+          "source": "LinkedIn",
+          "notes": "Strong team leadership experience, led frontend team of 5 developers"
+        },
+        {
+          "id": "c2",
+          "name": "Maria Garcia",
+          "email": "maria.garcia@example.com",
+          "phone": "(555) 234-5678",
+          "location": "Oakland, CA",
+          "currentRole": "Frontend Team Lead",
+          "company": "InnovateSoft",
+          "experience": "6 years",
+          "skills": ["React", "JavaScript", "TypeScript", "GraphQL", "CSS-in-JS", "Webpack"],
+          "education": "MS Web Engineering, UC Berkeley",
+          "matchScore": 88,
+          "source": "GitHub",
+          "notes": "Active open source contributor, mentor at coding bootcamps"
+        }
+      ]
+    },
+    {
+      "searchId": "2",
+      "searchName": "ML Engineer with Python",
+      "timestamp": "2025-05-16T15:00:00Z",
+      "candidates": [
+        {
+          "id": "c3",
+          "name": "James Wilson",
+          "email": "james.wilson@example.com",
+          "phone": "(555) 345-6789",
+          "location": "Remote (Based in Seattle, WA)",
+          "currentRole": "Machine Learning Engineer",
+          "company": "DataAI Solutions",
+          "experience": "5 years",
+          "skills": ["Python", "TensorFlow", "PyTorch", "NLP", "Computer Vision", "AWS"],
+          "education": "PhD Machine Learning, University of Washington",
+          "matchScore": 92,
+          "source": "Research Paper Database",
+          "notes": "Published 3 papers on NLP, experience with large language models"
+        },
+        {
+          "id": "c4",
+          "name": "Priya Patel",
+          "email": "priya.patel@example.com",
+          "phone": "(555) 456-7890",
+          "location": "Remote",
+          "currentRole": "AI Research Engineer",
+          "company": "TechGiant",
+          "experience": "4 years",
+          "skills": ["Python", "PyTorch", "Deep Learning", "Computer Vision", "MLOps"],
+          "education": "MS Computer Science, MIT",
+          "matchScore": 85,
+          "source": "Kaggle",
+          "notes": "Winner of multiple ML competitions, strong background in computer vision"
+        }
+      ]
+    }
+  ]
+}

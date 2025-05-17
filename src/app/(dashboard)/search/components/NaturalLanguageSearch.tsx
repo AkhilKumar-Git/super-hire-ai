@@ -23,6 +23,7 @@ interface NaturalLanguageSearchProps {
   performSearch: () => void;
   isSearching: boolean;
   searchProgress: number;
+  handleSearch: () => void;
 }
 
 export default function NaturalLanguageSearch({

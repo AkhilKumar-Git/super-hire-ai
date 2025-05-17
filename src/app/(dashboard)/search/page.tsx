@@ -1,17 +1,17 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { 
   createSearchContext, 
   updateSearchContext,
   saveSearchResults, 
   buildSearchPrompt, 
-  performAISearch, 
   getAllSearchContexts,
   generateUniqueId 
 } from '@/utils/searchContext';
 import type { SearchContext, ManualCriteria, ActiveFilters, Candidate } from '@/types/search';
+import { searchCandidates, generatePersonalizedEmail } from '@/lib/search';
 import { 
   SearchHeader,
   NaturalLanguageSearch,
@@ -20,7 +20,8 @@ import {
   ManualSearch,
   SearchResults,
   SearchModeTabs,
-  CombinedSearchTabs
+  CombinedSearchTabs,
+  EmailModal
 } from './components';
 
 // Sample data for suggested prompts
@@ -77,6 +78,7 @@ export default function SearchPage() {
   // Active filters state (for combined search)
   const [activeFilters, setActiveFilters] = useState<ActiveFilters>({
     useNaturalLanguage: true,
+    useBoolean: false,
     useBooleanSearch: false,
     useJobDescription: false,
     useManualCriteria: false
@@ -87,6 +89,12 @@ export default function SearchPage() {
   const [selectedContextId, setSelectedContextId] = useState<string | null>(null);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [searchName, setSearchName] = useState('');
+  
+  // Email modal state
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null);
+  const [emailContent, setEmailContent] = useState('');
+  const [isGeneratingEmail, setIsGeneratingEmail] = useState(false);
   
   // References
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -229,11 +237,13 @@ export default function SearchPage() {
         manualCriteria: manualCriteria,
         activeFilters: searchMode === 'combined' ? {
           useNaturalLanguage: true, // Always use natural language in combined mode
+          useBoolean: booleanQuery.trim() !== '',
           useBooleanSearch: booleanQuery.trim() !== '',
           useJobDescription: jobDescription.trim() !== '',
           useManualCriteria: false
         } : {
           useNaturalLanguage: false,
+          useBoolean: false,
           useBooleanSearch: false,
           useJobDescription: false,
           useManualCriteria: true
@@ -302,54 +312,23 @@ export default function SearchPage() {
   };
   
   // Search execution function
-  const performSearch = async () => {
-    // Validate search input based on mode
-    if (searchMode === 'combined') {
-      if (activeTab === 'natural' && !naturalLanguageQuery.trim()) {
-        alert('Please enter a natural language query');
-        return;
-      } else if (activeTab === 'boolean' && !booleanQuery.trim()) {
-        alert('Please enter boolean search terms');
-        return;
-      } else if (activeTab === 'jd' && !jobDescription.trim()) {
-        alert('Please upload or enter a job description');
-        return;
-      }
-    } else { // Manual mode
-      if (manualCriteria.skills.length === 0 && !manualCriteria.role.trim()) {
-        alert('Please specify at least one skill or role for manual search');
-        return;
-      }
+  const handleSearch = async () => {
+    if (searchMode === 'combined' && !naturalLanguageQuery && !booleanQuery && !jobDescription && !Object.values(activeFilters).some(Boolean)) {
+      alert('Please enter a search query or upload a job description');
+      return;
     }
-    
+
+    if (searchMode === 'manual' && !manualCriteria.role && manualCriteria.skills.length === 0) {
+      alert('Please enter at least a role or some skills');
+      return;
+    }
+
     setIsSearching(true);
     setSearchProgress(0);
-    
+    setSearchResults([]);
+
     try {
-      // Set active filters based on current mode and tab
-      const activeFilters: ActiveFilters = searchMode === 'combined' ? {
-        useNaturalLanguage: activeTab === 'natural',
-        useBooleanSearch: activeTab === 'boolean',
-        useJobDescription: activeTab === 'jd',
-        useManualCriteria: false
-      } : {
-        useNaturalLanguage: false,
-        useBooleanSearch: false,
-        useJobDescription: false,
-        useManualCriteria: true
-      };
-      
-      // Build the context object
-      const searchContext: Omit<SearchContext, 'id' | 'createdAt' | 'updatedAt'> = {
-        name: searchName || 'Untitled Search',
-        naturalLanguage: naturalLanguageQuery,
-        booleanSearch: booleanQuery,
-        jobDescription: jobDescription,
-        manualCriteria: manualCriteria,
-        activeFilters: activeFilters
-      };
-      
-      // Simulate progress
+      // Simulate search progress
       const progressInterval = setInterval(() => {
         setSearchProgress(prev => {
           if (prev >= 90) {
@@ -359,47 +338,83 @@ export default function SearchPage() {
           return prev + 10;
         });
       }, 500);
+
+      // Build search query based on active tab and search mode
+      let searchQuery = '';
       
-      // Build the complete prompt
-      const prompt = buildSearchPrompt(searchContext as SearchContext);
-      console.log('Search prompt:', prompt);
-      
-      // Perform the search
-      const results = await performAISearch(prompt);
-      
-      // Save the results
-      if (results.length > 0) {
-        // Use the centralized unique ID generator
-        const contextId = selectedContextId || generateUniqueId();
-        saveSearchResults(contextId, searchContext.name, results);
-        
-        // If this is a new search, save the context as well
-        if (!selectedContextId) {
-          const newContext = createSearchContext({
-            name: searchContext.name,
-            naturalLanguage: searchContext.naturalLanguage,
-            booleanSearch: searchContext.booleanSearch,
-            jobDescription: searchContext.jobDescription,
-            manualCriteria: searchContext.manualCriteria,
-            activeFilters: searchContext.activeFilters
-          });
-          setSelectedContextId(newContext.id);
-          setSavedContexts(prev => [...prev, newContext]);
+      if (searchMode === 'combined') {
+        if (activeFilters.useNaturalLanguage && naturalLanguageQuery) {
+          searchQuery = naturalLanguageQuery;
+        } else if (activeFilters.useBoolean && booleanQuery) {
+          searchQuery = booleanQuery;
+        } else if (activeFilters.useJobDescription && jobDescription) {
+          searchQuery = `Find candidates matching this job description: ${jobDescription.substring(0, 1000)}`;
         }
+      } else {
+        // Manual search mode
+        searchQuery = `Find candidates with the following criteria:\n`;
+        if (manualCriteria.role) searchQuery += `- Role: ${manualCriteria.role}\n`;
+        if (manualCriteria.skills.length > 0) searchQuery += `- Skills: ${manualCriteria.skills.join(', ')}\n`;
+        if (manualCriteria.experience) searchQuery += `- Experience: ${manualCriteria.experience}\n`;
+        if (manualCriteria.location) searchQuery += `- Location: ${manualCriteria.location}\n`;
+        if (manualCriteria.workType) searchQuery += `- Work Type: ${manualCriteria.workType}\n`;
+      }
+
+      // Create or update search context
+      const contextId = selectedContextId || generateUniqueId();
+      const contextData = {
+        id: contextId,
+        name: searchName || `Search ${new Date().toLocaleString()}`,
+        naturalLanguage: naturalLanguageQuery,
+        booleanSearch: booleanQuery,
+        jobDescription: jobDescription,
+        manualCriteria: manualCriteria,
+        activeFilters: activeFilters,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      if (selectedContextId) {
+        updateSearchContext(selectedContextId, contextData);
+      } else {
+        createSearchContext(contextData);
+      }
+
+      // Perform the actual search using our API
+      const response = await fetch('/api/search', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ query: searchQuery }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to perform search');
       }
       
-      setSearchResults(results);
+      const { data: results, savedCount } = await response.json();
+      
+      // Save results and update state
+      const searchResult = saveSearchResults(contextId, contextData.name, results);
+      setSearchResults(searchResult.candidates);
       setSearchProgress(100);
       
-      // Clear interval if it's still running
+      if (savedCount > 0) {
+        console.log(`Saved ${savedCount} new candidates to storage`);
+      }
+      
+      // Update saved contexts
+      const contexts = getAllSearchContexts();
+      setSavedContexts(contexts);
+      
       clearInterval(progressInterval);
     } catch (error) {
-      console.error('Error performing search:', error);
-      alert('Failed to perform search');
+      console.error('Search error:', error);
+      alert(error instanceof Error ? error.message : 'An error occurred while performing the search');
     } finally {
-      setTimeout(() => {
-        setIsSearching(false);
-      }, 500);
+      setIsSearching(false);
     }
   };
   
@@ -445,10 +460,10 @@ export default function SearchPage() {
             setShowSaveDialog={setShowSaveDialog}
             loadContext={loadContext}
             saveCurrentContext={saveCurrentContext}
-            performSearch={performSearch}
+            handleSearch={handleSearch}
             isSearching={isSearching}
-            searchProgress={searchProgress}
-          />
+            searchProgress={searchProgress} 
+            performSearch={handleSearch}          />
         )}
         
         {/* Boolean Search */}
@@ -502,7 +517,7 @@ export default function SearchPage() {
             setShowSaveDialog={setShowSaveDialog}
             loadContext={loadContext}
             saveCurrentContext={saveCurrentContext}
-            performSearch={performSearch}
+            performSearch={handleSearch}
             isSearching={isSearching}
             searchProgress={searchProgress}
             experienceLevels={experienceLevels}
@@ -515,12 +530,44 @@ export default function SearchPage() {
       
       {/* Search Results */}
       {searchResults.length > 0 || isSearching ? (
-        <SearchResults
-          results={searchResults}
-          isSearching={isSearching}
+        <SearchResults 
+          results={searchResults} 
+          isSearching={isSearching} 
           searchProgress={searchProgress}
+          onSendEmail={(candidate) => {
+            setSelectedCandidate(candidate);
+            setShowEmailModal(true);
+          }}
         />
       ) : null}
+      
+      <EmailModal
+        isOpen={showEmailModal}
+        onClose={() => setShowEmailModal(false)}
+        candidate={selectedCandidate}
+        emailContent={emailContent}
+        onEmailContentChange={setEmailContent}
+        onGenerateEmail={async () => {
+          if (!selectedCandidate) return;
+          
+          try {
+            setIsGeneratingEmail(true);
+            const generatedEmail = await generatePersonalizedEmail(
+              selectedCandidate,
+              jobDescription || 'We are looking for a talented professional to join our team.'
+            );
+            setEmailContent(generatedEmail);
+          } catch (error) {
+            console.error('Error generating email:', error);
+            alert('Failed to generate email. Please try again.');
+          } finally {
+            setIsGeneratingEmail(false);
+          }
+        }}
+        isGenerating={isGeneratingEmail}
+        jobDescription={jobDescription}
+        onJobDescriptionChange={setJobDescription}
+      />
     </div>
   );
 }

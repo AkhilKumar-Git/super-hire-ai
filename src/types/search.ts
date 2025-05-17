@@ -2,6 +2,7 @@
 
 export interface ActiveFilters {
   useNaturalLanguage: boolean;
+  useBoolean: boolean;
   useBooleanSearch: boolean;
   useJobDescription: boolean;
   useManualCriteria: boolean;
@@ -31,13 +32,18 @@ export interface SearchContext {
 export interface Candidate {
   id: string;
   name: string;
+  email?: string;
+  phone?: string;
+  location?: string;
   currentRole: string;
   company: string;
-  location: string;
   skills: string[];
-  experience: string;
-  education: string;
+  experience?: string;
+  education?: string;
+  profileUrl?: string;
+  summary?: string;
   matchScore: number;
+  source: string;
   contactInfo?: {
     email?: string;
     phone?: string;

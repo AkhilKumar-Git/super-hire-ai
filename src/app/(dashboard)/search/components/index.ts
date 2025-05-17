@@ -6,3 +6,4 @@ export { default as ManualSearch } from './ManualSearch';
 export { default as SearchResults } from './SearchResults';
 export { default as SearchModeTabs } from './SearchModeTabs';
 export { default as CombinedSearchTabs } from './CombinedSearchTabs';
+export { default as EmailModal } from './EmailModal';

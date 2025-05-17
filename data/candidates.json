@@ -1,0 +1,25 @@
+[
+  {
+    "name": "John Doe",
+    "email": "johndoe@example.com",
+    "phone": "123-456-7890",
+    "location": "San Francisco, CA",
+    "currentRole": "Senior React Developer",
+    "company": "Tech Solutions Inc.",
+    "skills": [
+      "React",
+      "TypeScript",
+      "JavaScript",
+      "SOLID design principles"
+    ],
+    "experience": "10+ years in software development",
+    "education": "B.Sc. in Computer Science",
+    "profileUrl": "http://linkedin.com/in/johndoe",
+    "summary": "An experienced React developer with a strong background in TypeScript and SOLID design principles.",
+    "matchScore": 90,
+    "source": "LinkedIn Search",
+    "id": "922d07eb-125f-4ced-bbe0-e306e78800d4",
+    "createdAt": "2025-05-17T12:50:13.197Z",
+    "updatedAt": "2025-05-17T12:50:13.197Z"
+  }
+]

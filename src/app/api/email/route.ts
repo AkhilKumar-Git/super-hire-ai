@@ -115,7 +115,7 @@ export async function POST(request: Request) {
     try {
       const result = await resend.emails.send({
         from: `${fromName} <${fromEmail}>`,
-        to: [candidate.email],
+        to: "akhi.the.techie@gmail.com",
         subject: emailSubject,
         html: emailContent,
       });

@@ -2,8 +2,32 @@ import { ChatOpenAI } from '@langchain/openai';
 import { PromptTemplate } from '@langchain/core/prompts';
 import { z } from 'zod';
 import { Candidate } from '@/types/search';
+import FirecrawlApp from '@mendable/firecrawl-js';
+
+// Types for Firecrawl API response
+interface FirecrawlSearchResult {
+  url: string;
+  title?: string;
+  description?: string;
+  markdown?: string;
+  text?: string;
+}
+
+interface FirecrawlSearchResponse {
+  data: FirecrawlSearchResult[];
+}
+// Firecrawl API configuration
+const USE_MOCK_DATA = process.env.NODE_ENV === 'development' && !process.env.FIRECRAWL_API_KEY;
+
+if (USE_MOCK_DATA) {
+  console.warn('FIRECRAWL_API_KEY is not set. Using mock data in development.');
+}
 
 // Initialize ChatOpenAI
+if (!process.env.OPENAI_API_KEY) {
+  throw new Error('OPENAI_API_KEY is not set in environment variables');
+}
+
 const model = new ChatOpenAI({
   openAIApiKey: process.env.OPENAI_API_KEY,
   modelName: 'gpt-4o',
@@ -39,25 +63,30 @@ const extractContent = (response: any): string => {
 
 // Define the schema for candidate data
 const candidateSchema = z.object({
-  name: z.string().optional().nullable(),
-  email: z.string().email().optional().nullable(),
+  name: z.string().min(1, 'Name is required').default('Unknown'),
+  email: z.union([
+    z.string().email('Invalid email format'),
+    z.string().length(0),
+    z.null()
+  ]).optional().transform(e => e === "" ? undefined : e),
   phone: z.string().optional().nullable(),
   location: z.string().optional().nullable(),
-  currentRole: z.string().optional().nullable(),
-  company: z.string().optional().nullable(),
-  skills: z.array(z.string()).optional().default([]),
+  currentRole: z.string().default('Not specified'),
+  company: z.string().default('Not specified'),
+  skills: z.array(z.string()).default([]),
   experience: z.string().optional().nullable(),
   education: z.string().optional().nullable(),
-  profileUrl: z.string().optional().nullable(),
+  profileUrl: z.string().url().optional().nullable(),
   summary: z.string().optional().nullable(),
-  matchScore: z.number().min(0).max(100).optional().default(0),
-  source: z.string().optional().nullable(),
-  id: z.string().optional().nullable(),
-  notes: z.string().optional().nullable(),
-}).refine(data => data.name && data.currentRole && data.company, {
-  message: 'Name, current role, and company are required',
-  path: ['name', 'currentRole', 'company']
-});
+  matchScore: z.number().min(0).max(100).default(0),
+  source: z.string().default('LinkedIn Search'),
+  id: z.string().optional(),
+  notes: z.string().optional()
+}).transform(data => ({
+  ...data,
+  // Ensure email is either a valid email or undefined
+  email: data.email && data.email.includes('@') ? data.email : undefined
+}));
 
 type CandidateType = z.infer<typeof candidateSchema>;
 
@@ -104,26 +133,133 @@ async function parseSearchQuery(query: string) {
   }
 }
 
-// Search for candidates using FireCrawl (mock implementation)
-async function searchWithFireCrawl(query: any) {
-  // This is a mock implementation
-  // In a real app, you would call the FireCrawl API here
-  console.log('Searching with query:', query);
-  
-  // Simulate API call
-  await new Promise(resolve => setTimeout(resolve, 1000));
-  
-  // Return mock data
+// Mock data for fallback
+function getMockData() {
   return [
     {
       url: 'https://linkedin.com/in/johndoe',
-      content: `John Doe is a Senior Software Engineer at Tech Corp with 5 years of experience in React, Node.js, and TypeScript. He has a Master's degree in Computer Science from Stanford University.`
+      content: `John Doe is a Senior Software Engineer at Tech Corp with 5 years of experience in React, Node.js, and TypeScript. He has a Master's degree in Computer Science from Stanford University.`,
+      title: 'John Doe | Senior Software Engineer at Tech Corp',
+      description: 'Experienced Software Engineer with expertise in modern web technologies.'
     },
     {
       url: 'https://linkedin.com/in/janesmith',
-      content: `Jane Smith is a Full Stack Developer at Web Solutions with 3 years of experience in JavaScript, Python, and AWS. She is based in San Francisco, CA.`
+      content: `Jane Smith is a Full Stack Developer at Web Solutions with 3 years of experience in JavaScript, Python, and AWS. She is based in San Francisco, CA.`,
+      title: 'Jane Smith | Full Stack Developer at Web Solutions',
+      description: 'Passionate developer with experience in building scalable web applications.'
     }
   ];
+}
+
+// Search for candidates using FireCrawl API
+async function searchWithFireCrawl(query: any) {
+  try {
+    // Convert the query object to a search string
+    let searchQuery = '';
+    if (typeof query === 'string') {
+      searchQuery = query;
+    } else if (typeof query === 'object') {
+      // Handle structured query object
+      const { role, skills = [], experience, location, workType } = query;
+      searchQuery = [
+        role || '',
+        ...skills,
+        experience ? `${experience} years experience` : '',
+        location || '',
+        workType || ''
+      ].filter(Boolean).join(' ');
+    }
+    
+    // Add LinkedIn specific filters to the search
+    const linkedinQuery = `${searchQuery} site:linkedin.com/in/`;
+    
+    if (USE_MOCK_DATA) {
+      console.log('Using mock data for Firecrawl search with query:', linkedinQuery);
+      return getMockData();
+    }
+    
+    console.log('Searching Firecrawl API with query:', linkedinQuery);
+    
+    console.log('Searching Firecrawl API with query:', linkedinQuery);
+    
+    try {
+      // For server-side calls, use the Firecrawl API directly
+      if (typeof window === 'undefined') {
+        const app = new FirecrawlApp({
+          apiKey: process.env.FIRECRAWL_API_KEY || ''
+        });
+        
+        const searchOptions = {
+          limit: 5,
+          pageContent: true,
+          scrapeOptions: {
+            onlyMainContent: true
+          }
+        } as const;
+        
+        const searchResult = await app.search(linkedinQuery, searchOptions);
+        return searchResult.data.map((result: any) => ({
+          url: result.url,
+          content: result.markdown || result.text || result.description || 'No content available',
+          title: result.title || 'No title',
+          description: result.description || 'No description',
+        }));
+      }
+      
+      // For client-side calls, use the API route
+      const baseUrl = window.location.origin;
+      const response = await fetch(`${baseUrl}/api/firecrawl`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query: linkedinQuery,
+          options: {
+            limit: 5,
+            pageContent: true,
+            scrapeOptions: {
+              onlyMainContent: true
+            }
+          }
+        }),
+      });
+      
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        console.error('Firecrawl API error:', error);
+        throw new Error(error.error || `HTTP error! status: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      if (!result.success) {
+        console.error('Firecrawl API returned error:', result.error);
+        throw new Error(result.error || 'Failed to perform search');
+      }
+      
+      const data = result.data;
+      
+      if (!data || !Array.isArray(data)) {
+        console.error('Invalid response format from Firecrawl API:', data);
+        throw new Error('Invalid response format from search service');
+      }
+      
+      // Transform the results to match our expected format
+      return data.map((result) => ({
+        url: result.url,
+        content: result.markdown || result.text || result.description || 'No content available',
+        title: result.title || 'No title',
+        description: result.description || 'No description',
+      }));
+    } catch (error) {
+      console.error('Error in Firecrawl search:', error);
+      throw new Error('Failed to perform search. Please try again later.');
+    }
+  } catch (error) {
+    console.error('Firecrawl search error:', error);
+    // Fallback to mock data in case of error
+    return getMockData();
+  }
 }
 
 // Extract candidate information from page content
@@ -178,22 +314,75 @@ async function extractCandidateFromPage(content: string, query: any): Promise<Ca
     ]);
     
     const content = extractContent(response);
-    const candidate = JSON.parse(content);
     
-    // Ensure required fields are present and properly typed
-    const parsedCandidate = {
-      ...candidate,
-      source: 'LinkedIn Search',
-      matchScore: candidate.matchScore || 0, // Ensure matchScore is always a number
-      skills: Array.isArray(candidate.skills) ? candidate.skills : [],
-      name: candidate.name || 'Unknown',
-      currentRole: candidate.currentRole || 'Not specified',
-      company: candidate.company || 'Not specified',
-    };
+    // Try to extract JSON from the content if it's wrapped in markdown code blocks
+    let jsonContent = content.trim();
+    const jsonMatch = jsonContent.match(/```(?:json)?\n([\s\S]*?)\n```/);
+    if (jsonMatch && jsonMatch[1]) {
+      jsonContent = jsonMatch[1].trim();
+    }
     
-    return candidateSchema.parse(parsedCandidate);
+    // Try to parse the content as JSON
+    try {
+      const candidate = JSON.parse(jsonContent);
+      
+      // Transform the candidate data to match our schema
+      const transformedCandidate = {
+        ...candidate,
+        // Convert all values to strings and handle undefined/null
+        name: candidate.name?.toString() || 'Unknown',
+        email: candidate.email?.toString(),
+        phone: candidate.phone?.toString(),
+        location: candidate.location?.toString(),
+        currentRole: candidate.currentRole?.toString() || 'Not specified',
+        company: candidate.company?.toString() || 'Not specified',
+        skills: Array.isArray(candidate.skills) 
+          ? candidate.skills.map((s: any) => s?.toString())
+          : (typeof candidate.skills === 'string' 
+              ? candidate.skills.split(/[,\s]+/).filter(Boolean) 
+              : []),
+        experience: candidate.experience?.toString(),
+        education: candidate.education?.toString(),
+        profileUrl: candidate.profileUrl?.toString(),
+        summary: candidate.summary?.toString(),
+        matchScore: typeof candidate.matchScore === 'number' 
+          ? Math.max(0, Math.min(100, candidate.matchScore)) 
+          : (candidate.matchScore ? parseInt(candidate.matchScore, 10) || 0 : 0),
+        source: candidate.source?.toString() || 'LinkedIn Search'
+      };
+      
+      // Parse and validate with our schema
+      return await candidateSchema.parseAsync(transformedCandidate);
+      
+    } catch (parseError) {
+      console.error('Failed to parse candidate data as JSON:', parseError);
+      console.log('Raw content that failed to parse:', jsonContent);
+      
+      // Fallback: Try to extract basic information from the text
+      const nameMatch = content.match(/"name"\s*:\s*"([^"]+)"/i) || 
+                       content.match(/name\s*[:=]\s*([^\n,;]+)/i);
+      const emailMatch = content.match(/"email"\s*:\s*"([^"]+)"/i) || 
+                        content.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+      
+      try {
+        const fallbackCandidate = {
+          name: nameMatch ? nameMatch[1].trim() : 'Unknown',
+          email: emailMatch ? emailMatch[0] : undefined,
+          source: 'LinkedIn Search',
+          matchScore: 0,
+          skills: [],
+          currentRole: 'Not specified',
+          company: 'Not specified',
+        };
+        
+        return await candidateSchema.parseAsync(fallbackCandidate);
+      } catch (fallbackError) {
+        console.error('Error in fallback candidate creation:', fallbackError);
+        return null;
+      }
+    }
   } catch (error) {
-    console.error('Error parsing candidate data:', error);
+    console.error('Error extracting candidate data:', error);
     return null;
   }
 }

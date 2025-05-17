@@ -13,6 +13,7 @@
     "@heroicons/react": "^2.2.0",
     "@langchain/core": "^0.3.56",
     "@langchain/openai": "^0.5.10",
+    "@mendable/firecrawl-js": "^1.25.0",
     "@react-email/components": "^0.0.41",
     "clsx": "^2.1.1",
     "framer-motion": "^12.12.1",
@@ -31,7 +32,8 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
+    "@types/estree": "^1.0.7",
+    "@types/node": "^20.17.47",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "autoprefixer": "^10.4.18",
